@@ -15,77 +15,69 @@ void generateImage(const float xmin, const float xmax,
     const float step, float(*interp)(float, float,vector<Station>&),
     vector<Station> &stations)
 {
-  int writeImage(char* filename, int width, int height, float *buffer, char* title)
-{
-   int code = 0;
-   FILE *fp;
-   png_structp png_ptr;
-   png_infop info_ptr;
-   png_bytep row;
-// Open file for writing (binary mode)
-   fp = fopen(filename, "wb");
-   if (fp == NULL) {
-      fprintf(stderr, "Could not open file %s for writing\n", filename);
-      code = 1;
-      goto finalise;
-   }
- // Initialize write structure
-   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-   if (png_ptr == NULL) {
-      fprintf(stderr, "Could not allocate write struct\n");
-      code = 1;
-      goto finalise;
-   }
-   // Initialize info structure
-   info_ptr = png_create_info_struct(png_ptr);
-   if (info_ptr == NULL) {
-      fprintf(stderr, "Could not allocate info struct\n");
-      code = 1;
-      goto finalise;
-   }
- // Setup Exception handling
-   if (setjmp(png_jmpbuf(png_ptr))) {
-      fprintf(stderr, "Error during png creation\n");
-      code = 1;
-      goto finalise;
-   }
-  png_init_io(png_ptr, fp);
+  //create encoder and set settings and info (optional)
+  lodepng::State state;
 
-   // Write header (8 bit colour depth)
-   png_set_IHDR(png_ptr, info_ptr, width, height,
-         8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
-         PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+  //generate palette
+  for(int i = min; i < max; i++)
+  {
+    /*
+    unsigned char r = 127 * (1 + std::sin(5 * i * 6.28318531 / 16));
+    unsigned char g = 127 * (1 + std::sin(2 * i * 6.28318531 / 16));
+    unsigned char b = 127 * (1 + std::sin(3 * i * 6.28318531 / 16));
+    unsigned char a = 63 * (1 + std::sin(8 * i * 6.28318531 / 16)) + 128; */ /*alpha channel of the palette (tRNS chunk)*/
 
-   // Set title
-   if (title != NULL) {
-      png_text title_text;
-      title_text.compression = PNG_TEXT_COMPRESSION_NONE;
-      title_text.key = "Title";
-      title_text.text = title;
-      png_set_text(png_ptr, info_ptr, &title_text, 1);
-   }
+    unsigned int range = (max-min);
+    unsigned char r =((float) 255.0/range) *i;
+    unsigned char g = ((float) 255.0/range) *(range-i);
+    unsigned char b = g/2;
+    unsigned char a = 155;
 
-   png_write_info(png_ptr, info_ptr);
-   // Allocate memory for one row (3 bytes per pixel - RGB)
-   row = (png_bytep) malloc(3 * width * sizeof(png_byte));
 
-   // Write image data
-   int x, y;
-   for (y=0 ; y<height ; y++) {
-      for (x=0 ; x<width ; x++) {
-         setRGB(&(row[x*3]), buffer[y*width + x]);
-      }
-      png_write_row(png_ptr, row);
-   }
+    //palette must be added both to input and output color mode, because in this
+    //sample both the raw image and the expected PNG image use that palette.
+    lodepng_palette_add(&state.info_png.color, r, g, b, a);
+    lodepng_palette_add(&state.info_raw, r, g, b, a);
+  }
 
-   // End write
-   png_write_end(png_ptr, NULL);
-   finalise:
-   if (fp != NULL) fclose(fp);
-   if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
-   if (png_ptr != NULL) png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
-   if (row != NULL) free(row);
+  //both the raw image and the encoded image must get colorType 3 (palette)
+  state.info_png.color.colortype = LCT_PALETTE; //if you comment this line, and create the above palette in info_raw instead, then you get the same image in a RGBA PNG.
+  state.info_png.color.bitdepth = 4;
+  state.info_raw.colortype = LCT_PALETTE;
+  state.info_raw.bitdepth = 4;
+  state.encoder.auto_convert = 0; //we specify ourselves exactly what output PNG color mode we want
 
-   return code;
-}
+  // Generation of the matrix
+  const unsigned w = (unsigned)( (xmax - xmin)/step);
+  const unsigned h = (unsigned)( (ymax - ymin)/step);
+  std::cerr << xmax << " xmax & xmin " << xmin << endl;
+  std::cerr << ymax << " ymax & ymin " << ymin << endl;
+  std::cerr << w << " w & h " << h << endl;
+  std::vector<unsigned char> image;
+  image.resize((w * h * 4 + 7) / 8, 0);
+  for(unsigned y = 0; y < h; y++)
+  for(unsigned x = 0; x < w; x++)
+  {
+    size_t byte_index = (y * w + x) / 2;
+    bool byte_half = (y * w + x) % 2 == 1;
+
+    /*
+    int color = (int)(4 * ((1 + std::sin(2.0 * 6.28318531 * x / (double)w))
+                         + (1 + std::sin(2.0 * 6.28318531 * y / (double)h))) );
+
+    */
+    //cout << (int)(interp(xmin+step*x,ymin+step*y,stations)*DISPCOEF) 
+    //  << " x " << xmin+step*x << " y " << ymin+step*y<<endl;
+    int color = (int)(interp(xmin+step*x,ymax-step*y,stations)*0.9);
+    image[byte_index] |= (unsigned char)(color << (byte_half ? 0 : 4));
+  }
+
+  //encode and save
+  std::vector<unsigned char> buffer;
+  unsigned error = lodepng::encode(buffer, image.empty() ? 0 : &image[0], w, h, state);
+  if(error)
+  {
+    std::cout << "encoder error " << error << ": "<< lodepng_error_text(error) << std::endl;
+  }
+  lodepng::save_file(buffer, "interp.png");
 }

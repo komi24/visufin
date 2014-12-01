@@ -1,0 +1,62 @@
+#include "hardy.h"
+
+
+using namespace std;
+using namespace Eigen;
+
+static float ComputeMeanValues(std::vector<Station> &stations){
+  float res=0;
+  for (vector<Station>::iterator it = stations.begin(); it != stations.end();) {
+  float longitude = it->longitude;
+  float latitude = it->latitude;
+  it++;
+  res += sqrt( pow((it->longitude -longitude),2) + pow((it->latitude- latitude),2));
+ 
+ }
+
+ return res/(float)stations.size();
+}
+static VectorXf ComptuteHardyCoefficient(std::vector<Station> &stations, float R){
+
+ MatrixXf A(stations.size(),stations.size());
+ VectorXf b(stations.size());
+ int i =0;
+ for (vector<Station>::iterator it1 = stations.begin(); it1 != stations.end(); it1++) {
+  
+   b(i) = it1->value;
+   int j = 0;
+   for (vector<Station>::iterator it2 = stations.begin(); it2 != stations.end(); it2++) {
+      cout << j;
+     A(i,j) = sqrt(R + pow((it1->longitude - it2->longitude),2) + pow((it1->latitude - it2->latitude),2));
+     j++;
+   }
+cout << i
+   i++;
+   } 
+return A.colPivHouseholderQr().solve(b);
+
+}
+ 
+
+static float ComputeHardyInterpolation(const float longitude, const float latitude,  std::vector<Station> &stations,float R, VectorXf x) {
+
+ float res = 0;
+
+
+
+
+ int i = 0;
+
+for (vector<Station>::iterator it = stations.begin(); it != stations.end(); it++) {
+  res += x(i) *  sqrt(R + pow((it->longitude - longitude),2) + pow((it->latitude - latitude),2));
+  i++;
+
+  }
+
+
+
+ 
+ return res;
+}
+
+

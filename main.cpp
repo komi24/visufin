@@ -18,6 +18,6 @@ int main(int argc, char **argv){
   //vector<Station> stations = vector<Station>();
   //ComputeShepardInterpolation(1.0,0.2,stations);
   test->setInterp(&ComputeShepardInterpolation);
-  test->interpolate(0.01);
-  test->updateIsocont(iso,0.02);
+  test->interpolate(0.001);
+  test->updateIsocont(iso,0.04);
 }

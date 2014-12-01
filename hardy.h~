@@ -1,0 +1,21 @@
+
+#ifndef HARDY_H
+#define HARDY_H
+
+
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <list>
+#include <cmath>
+#include <fstream>
+#include "Station.h"
+#include <./eigen-eigen-1306d75b4a21/Eigen/Dense>
+using namespace Eigen;
+
+
+static float ComputeMeanValues(std::vector<Station> &stations);
+static VectorXf ComptuteHardyCoefficient(std::vector<Station> &stations, float R);
+
+static float ComputeHardyInterpolation(const float longitude, const float latitude,  std::vector<Station> &stations,float R, VectorXf x);
+#endif

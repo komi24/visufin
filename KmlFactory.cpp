@@ -2,8 +2,11 @@
 #include "shepard.h"
 #include "makepng.h"
 #include "writeKML.h"
+#include "Station.h"
+#include "hardy.h"
 
 using namespace std;
+using namespace Eigen;
 
 void KmlFactory::parseData(int day, int hour){
   this->parser = new Parser();
@@ -42,6 +45,20 @@ void KmlFactory::setInterp(float(*f)(float,float,vector<Station>&)){
 void KmlFactory::interpolate(float step){
   vector<Station> stations = parser->stations;
     generateImage(limitW,limitE,limitS,limitN,domainMin,domainMax,step,interp,
+        stations);
+    writeKMLimage(limitN,limitS,limitW,limitE);
+}
+
+float KmlFactory::hardyinterpol(float longitude, float latitude,  std::vector<Station> &stations){
+	return ComputeHardyInterpolation( longitude, latitude, stations, R,x);
+}
+
+void KmlFactory::interpolateHardy(float step){
+    
+  vector<Station> stations = parser->stations;
+    R= 0.815 * ComputeMeanValues(stations);
+    x= ComptuteHardyCoefficient(stations, R);
+    generateImage(limitW,limitE,limitS,limitN,domainMin,domainMax,step,hardyinterp,
         stations);
     writeKMLimage(limitN,limitS,limitW,limitE);
 }
