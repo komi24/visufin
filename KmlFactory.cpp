@@ -1,0 +1,83 @@
+#include "KmlFactory.h"
+#include "shepard.h"
+#include "makepng.h"
+#include "writeKML.h"
+
+using namespace std;
+
+void KmlFactory::parseData(int day, int hour){
+  this->parser = new Parser();
+  this->parser->parseFile(day,hour);
+  limitW = parser->stations.begin()->longitude;
+  limitE = limitE;
+  limitN = parser->stations.begin()->latitude;
+  limitS = limitN;
+  domainMin = parser->stations.begin()->value;
+  domainMax = domainMin;
+
+  for(vector<Station>::iterator it = parser->stations.begin();
+      it != parser->stations.end(); it++){
+    if(limitW > it->longitude)
+      limitW = it->longitude;
+    if(limitE < it->longitude)
+      limitE = it->longitude;
+    if(limitN < it->latitude)
+      limitN = it->latitude;
+    if(limitS > it->latitude)
+      limitS = it->latitude;
+    if(domainMin > it->value)
+      domainMin = it->value;
+    if(domainMax < it->value)
+      domainMax = it->value;
+  }
+  cout << limitS << " " << limitN << "  " << limitW << "  " << limitE <<endl;
+  cout << domainMin << " " << domainMax << endl;
+
+}
+
+void KmlFactory::setInterp(float(*f)(float,float,vector<Station>&)){
+  this->interp = f;
+}
+
+void KmlFactory::interpolate(float step){
+  vector<Station> stations = parser->stations;
+    generateImage(limitW,limitE,limitS,limitN,domainMin,domainMax,step,interp,
+        stations);
+    writeKMLimage(limitN,limitS,limitW,limitE);
+}
+
+void KmlFactory::updateIsocont(float p,float step){
+  float coorx[4];
+  float coory[4];
+  float val[4];
+  float resx[4];
+  float resy[4];
+  int k; // Index du résultat
+  for(float lon=limitW; lon<limitE; lon+=step)
+    for(float lat=limitN; lat>limitS; lat-=step){
+      coorx[0]=lon;
+      coorx[1]=lon+step;
+      coorx[2]=lon+step;
+      coorx[3]=lon;
+      coory[0]=lat;
+      coory[1]=lat;
+      coory[2]=lat+step;
+      coory[3]=lat+step;
+      val[0]=interp(lon,lat,parser->stations);
+      val[1]=interp(lon+step,lat,parser->stations);
+      val[2]=interp(lon+step,lat+step,parser->stations);
+      val[3]=interp(lon,lat+step,parser->stations);
+      isocontour(p,coorx,coory,val,resx,resy,k);
+//      cerr << k << "<<< k" << endl;
+      if(k==2){
+        isocont.push_back(Segment(resx[0],resx[1],resy[0],resy[1]));
+//    cerr << "ok2" <<endl;
+      } else if (k==4){
+        isocont.push_back(Segment(resx[0],resx[1],resy[0],resy[1]));
+        isocont.push_back(Segment(resx[2],resx[3],resy[2],resy[3]));
+//    cerr << "ok4" <<endl;
+      }
+    }
+    writeKMLisocont(limitN,limitS,limitW,limitE,isocont);
+    cerr << isocont.size() << endl;
+}
